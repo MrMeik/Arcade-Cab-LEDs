@@ -1,26 +1,32 @@
 #include <FastLED.h>
 
-#define B1_INPUT_PIN 2
-#define B1_RED_PIN 3
-#define B1_GRN_PIN 4
-#define B1_BLU_PIN 5
+#define B1_INPUT_PIN 10
+#define B1_RED_PIN 13
+#define B1_GRN_PIN 12
+#define B1_BLU_PIN 11
 
 #define B2_INPUT_PIN 6
-#define B2_RED_PIN 7
+#define B2_RED_PIN 9
 #define B2_GRN_PIN 8
-#define B2_BLU_PIN 9
+#define B2_BLU_PIN 7
 
-#define B3_INPUT_PIN 10
-#define B3_RED_PIN 11
-#define B3_GRN_PIN 12
-#define B3_BLU_PIN 13
+#define B3_INPUT_PIN 2
+#define B3_RED_PIN 5
+#define B3_GRN_PIN 4
+#define B3_BLU_PIN 3
 
-#define JOYSTICK_LEFT_PIN 15
-#define JOYSTICK_RIGHT_PIN 16
-#define JOYSTICK_DOWN_PIN 17
-#define JOYSTICK_UP_PIN 18
+#define JOYSTICK_LEFT_PIN 22
+#define JOYSTICK_RIGHT_PIN 24
+#define JOYSTICK_DOWN_PIN 26
+#define JOYSTICK_UP_PIN 28
 
 #define TOTAL_INPUTS 7
+
+#define LED_PIN_1 34
+#define LED_PIN_2 36
+
+#define NUM_LEDS_1 0
+#define NUM_LEDS_2 15
 
 struct ButtonState {
     bool justPressed;
@@ -83,12 +89,6 @@ ButtonColorPins buttonColorPins[3] = {
     { B3_RED_PIN, B3_GRN_PIN, B3_BLU_PIN },
 };
 
-#define LED_PIN_1 19
-#define LED_PIN_2 14
-
-#define NUM_LEDS_1 10
-#define NUM_LEDS_2 6
-
 CRGB leds_1[NUM_LEDS_1];
 CRGB leds_2[NUM_LEDS_2];
 
@@ -120,6 +120,7 @@ void setup() {
     FastLED.setBrightness(50);
 
     setToAnimPulse();
+    FastLED.show();
 }
 
 void updateButtonStates() {
@@ -175,57 +176,56 @@ int animationState = ANIM_OFF;
 CRGB animColor = CRGB::Aqua;
 
 void loop() {
-    EVERY_N_MILLISECONDS(30) {
-        updateInputs();
-    }
+    // EVERY_N_MILLISECONDS(30) {
+    //     updateInputs();
+    // }
 
-    if (animationState == ANIM_PULSE) {
-        EVERY_N_MILLISECONDS(50) {
-            bool useRed = buttons[BUTTON_1].isPressed;
-            bool useGreen = buttons[BUTTON_2].isPressed;
-            bool useBlue = buttons[BUTTON_3].isPressed;
+    // if (animationState == ANIM_PULSE) {
+    //     EVERY_N_MILLISECONDS(50) {
+    //         bool useRed = buttons[BUTTON_1].isPressed;
+    //         bool useGreen = buttons[BUTTON_2].isPressed;
+    //         bool useBlue = buttons[BUTTON_3].isPressed;
 
-            bool addPixel = useRed || useGreen || useBlue;
+    //         bool addPixel = useRed || useGreen || useBlue;
 
-            CRGB newPixelColor = animColor;
+    //         CRGB newPixelColor = animColor;
 
-            if (addPixel) {
-                newPixelColor = CRGB::Black;
-                if (useRed) {
-                    newPixelColor.red = 200;
-                }
-                if (useGreen) {
-                    newPixelColor.green = 200;
-                }
-                if (useBlue) {
-                    newPixelColor.blue = 200;
-                }
-            }
+    //         if (addPixel) {
+    //             newPixelColor = CRGB::Black;
+    //             if (useRed) {
+    //                 newPixelColor.red = 200;
+    //             }
+    //             if (useGreen) {
+    //                 newPixelColor.green = 200;
+    //             }
+    //             if (useBlue) {
+    //                 newPixelColor.blue = 200;
+    //             }
+    //         }
 
-            for (int ledIndex = 0; ledIndex < 2; ledIndex++) {
-                LedStruct led = Leds[ledIndex];
+    //         for (int ledIndex = 0; ledIndex < 2; ledIndex++) {
+    //             LedStruct led = Leds[ledIndex];
 
-                for (int i = led.num - 1; i > 0; i--) {
-                    led.buffer[i] = led.buffer[i - 1];
-                }
+    //             for (int i = led.num - 1; i > 0; i--) {
+    //                 led.buffer[i] = led.buffer[i - 1];
+    //             }
 
-                led.buffer[0] = newPixelColor;
-            }
-        }       
-    }
-    else if (animationState == ANIM_RAINBOW) {
-        EVERY_N_MILLISECONDS(10) {
-            animationOffset++;
-        }
+    //             led.buffer[0] = newPixelColor;
+    //         }
+    //     }       
+    // }
+    // else if (animationState == ANIM_RAINBOW) {
+    //     EVERY_N_MILLISECONDS(10) {
+    //         animationOffset++;
+    //     }
 
-        for (int ledIndex = 0; ledIndex < 2; ledIndex++) {
-            LedStruct led = Leds[ledIndex];
-            fill_rainbow(led.buffer, led.num, animationOffset);
-        }
-    }
+    //     for (int ledIndex = 0; ledIndex < 2; ledIndex++) {
+    //         LedStruct led = Leds[ledIndex];
+    //         fill_rainbow(led.buffer, led.num, animationOffset);
+    //     }
+    // }
 
-    FastLED.show();
-    FastLED.delay(1);
+    FastLED.show(5);
 }
 
 void setToAnimPulse() {

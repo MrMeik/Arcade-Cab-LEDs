@@ -1,5 +1,11 @@
 #include <FastLED.h>
 
+#define LED_PIN_1 34
+#define LED_PIN_2 36
+
+#define NUM_LEDS_1 30
+#define NUM_LEDS_2 15
+
 #define B1_INPUT_PIN 10
 #define B1_RED_PIN 13
 #define B1_GRN_PIN 12
@@ -20,13 +26,16 @@
 #define JOYSTICK_DOWN_PIN 26
 #define JOYSTICK_UP_PIN 28
 
+// ==== Button input global variables and constants ====
+#define BUTTON_1 0
+#define BUTTON_2 1
+#define BUTTON_3 2
+#define UP 3
+#define DOWN 4
+#define LEFT 5
+#define RIGHT 6
+
 #define TOTAL_INPUTS 7
-
-#define LED_PIN_1 34
-#define LED_PIN_2 36
-
-#define NUM_LEDS_1 6
-#define NUM_LEDS_2 20
 
 struct ButtonState {
     bool justPressed;
@@ -44,14 +53,6 @@ ButtonState joystickDown = { false, false, JOYSTICK_DOWN_PIN, HIGH, HIGH };
 ButtonState joystickLeft = { false, false, JOYSTICK_LEFT_PIN, HIGH, HIGH };
 ButtonState joystickRight = { false, false, JOYSTICK_RIGHT_PIN, HIGH, HIGH };
 
-#define BUTTON_1 0
-#define BUTTON_2 1
-#define BUTTON_3 2
-#define UP 3
-#define DOWN 4
-#define LEFT 5
-#define RIGHT 6
-
 ButtonState buttons[TOTAL_INPUTS] = {
     button1,
     button2,
@@ -62,6 +63,7 @@ ButtonState buttons[TOTAL_INPUTS] = {
     joystickRight
 };
 
+// ==== Button LED global variables and constants ====
 struct ButtonColor {
     int red;
     int green;
@@ -89,6 +91,7 @@ ButtonColorPins buttonColorPins[3] = {
     { B3_RED_PIN, B3_GRN_PIN, B3_BLU_PIN },
 };
 
+// ==== LED global variables and constants ====
 CRGB leds_1[NUM_LEDS_1];
 CRGB leds_2[NUM_LEDS_2];
 
@@ -108,6 +111,16 @@ void setup() {
     FastLED.addLeds<WS2812B, LED_PIN_1, GRB>(leds_1, NUM_LEDS_1);
     FastLED.addLeds<WS2812B, LED_PIN_2, GRB>(leds_2, NUM_LEDS_2);
     FastLED.setBrightness(50);
+
+    digitalWrite(B1_RED_PIN, LOW);
+    digitalWrite(B2_RED_PIN, LOW);
+    digitalWrite(B3_RED_PIN, LOW);
+}
+
+void setButtonColor(int button, ButtonColor color) {
+    digitalWrite(buttonColorPins[button].redPin, color.red);
+    digitalWrite(buttonColorPins[button].greenPin, color.green);
+    digitalWrite(buttonColorPins[button].bluePin, color.blue);
 }
 
 void updateButtonStates() {
@@ -123,118 +136,75 @@ void updateButtonStates() {
     }
 }
 
-void setButtonColor(int button, ButtonColor color) {
-    digitalWrite(buttonColorPins[button].redPin, color.red);
-    digitalWrite(buttonColorPins[button].greenPin, color.green);
-    digitalWrite(buttonColorPins[button].bluePin, color.blue);
-}
-
-#define PATTERN_LENGTH 11
-int pattern[PATTERN_LENGTH] = {
-    UP,
-    UP,
-    DOWN,
-    DOWN,
-    LEFT,
-    RIGHT,
-    LEFT,
-    RIGHT,
-    BUTTON_2,
-    BUTTON_3,
-    BUTTON_1
- };
-
-int placeInPattern = 0;
-bool patternCompleted = false;
-int framesOfNoInput = 0;
-
-int framesUntilPatternTimeout = 20;
-int offset = 0;
-
-void loop() {
+void updateInputs() {
     updateButtonStates();
-    
+
+     ButtonColor currentColor = getCurrentButtonColor();
+
     if (buttons[BUTTON_1].isPressed) {
         setButtonColor(BUTTON_1, MAGENTA);
-    }
-    else {
+    } else {
         if (buttons[UP].isPressed) {
             setButtonColor(BUTTON_1, GREEN);
-        }
-        else if (buttons[DOWN].isPressed) {
+        } else if (buttons[DOWN].isPressed) {
             setButtonColor(BUTTON_1, BLUE);
-        }
-        else if (buttons[LEFT].isPressed) {
+        } else if (buttons[LEFT].isPressed) {
             setButtonColor(BUTTON_1, YELLOW);
-        }
-        else if (buttons[RIGHT].isPressed) {
+        } else if (buttons[RIGHT].isPressed) {
             setButtonColor(BUTTON_1, RED);
+        } else {
+            setButtonColor(BUTTON_1, currentColor);
         }
-        else {
-            setButtonColor(BUTTON_1, WHITE);
-        }
-    }   
+    }
 
     if (buttons[BUTTON_2].isPressed) {
         setButtonColor(BUTTON_2, RED);
-    }
-    else {
-        setButtonColor(BUTTON_2, WHITE);
+    } else {
+        setButtonColor(BUTTON_2, currentColor);
     }
 
     if (buttons[BUTTON_3].isPressed) {
         setButtonColor(BUTTON_3, CYAN);
+    } else {
+        setButtonColor(BUTTON_3, currentColor);
     }
-    else {
-        setButtonColor(BUTTON_3, WHITE);
+}
+
+int offset = 0;
+int currentColorIndex = 0;
+
+ButtonColor getCurrentButtonColor() {
+    switch (currentColorIndex) {
+        case 0: 
+            return BLUE;
+        case 1: 
+            return RED;
+        case 2: 
+            return GREEN;
     }
+}
 
-    if (!patternCompleted) {
-        if (isAnyOtherJustPressed(pattern[placeInPattern])) {
-            // Wrong button was pressed, reset the pattern
-            placeInPattern = 0;
-            framesOfNoInput = 0;
-        } 
-        else if (buttons[pattern[placeInPattern]].justPressed) {
-            // Correct button was pressed, advance to polling for next button
-            placeInPattern++;
-            framesOfNoInput = 0;
-            patternCompleted = placeInPattern == PATTERN_LENGTH;
-        } 
-        else if (placeInPattern != 0) {
-            // Keep track of how long user has been on this current step of the pattern
-            framesOfNoInput++;
-
-            if (framesOfNoInput >= framesUntilPatternTimeout) {
-                // User has waited too long to input next button in pattern, reset
-                placeInPattern = 0;
-                framesOfNoInput = 0;
-                setButtonColor(BUTTON_3, RED);
-            } 
-        }
-    }
-
-    if (patternCompleted) {
-        setButtonColor(BUTTON_1, RED);
-        setButtonColor(BUTTON_2, GREEN);
-        setButtonColor(BUTTON_3, BLUE);
-    }
-
+void loop() {
     offset++;
     offset = offset % 256;
+    // EVERY_N_MILLISECONDS(30) {
+    //     updateInputs();
+    // }
+
+    EVERY_N_SECONDS(1) {
+        ButtonColor currentColor = getCurrentButtonColor();       
+
+        setButtonColor(BUTTON_1, currentColor);
+        setButtonColor(BUTTON_2, currentColor);
+        setButtonColor(BUTTON_3, currentColor);
+
+        currentColorIndex++;
+        currentColorIndex = currentColorIndex % 3;
+    }
 
     fill_rainbow(leds_1, NUM_LEDS_1, offset);
     fill_rainbow(leds_2, NUM_LEDS_2, offset);
     FastLED.show();
 
-    FastLED.delay(30);
-}
-
-bool isAnyOtherJustPressed(int button) {
-    for (int i = 0; i < TOTAL_INPUTS; i++) {
-        if (i != button && buttons[i].justPressed) {
-            return true;
-        }
-    }
-    return false;
+    FastLED.delay(10);
 }
