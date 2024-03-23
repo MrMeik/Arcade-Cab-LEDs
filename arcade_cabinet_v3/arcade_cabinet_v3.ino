@@ -3,7 +3,7 @@
 #define LED_PIN_1 34
 #define LED_PIN_2 36
 
-#define NUM_LEDS_1 30
+#define NUM_LEDS_1 15
 #define NUM_LEDS_2 15
 
 #define B1_INPUT_PIN 10
@@ -95,6 +95,7 @@ ButtonColorPins buttonColorPins[3] = {
 CRGB leds_1[NUM_LEDS_1];
 CRGB leds_2[NUM_LEDS_2];
 
+
 void setup() {
     // Set pin modes for all buttons
     for (int i = 0; i < TOTAL_INPUTS; i++) {
@@ -111,10 +112,6 @@ void setup() {
     FastLED.addLeds<WS2812B, LED_PIN_1, GRB>(leds_1, NUM_LEDS_1);
     FastLED.addLeds<WS2812B, LED_PIN_2, GRB>(leds_2, NUM_LEDS_2);
     FastLED.setBrightness(50);
-
-    digitalWrite(B1_RED_PIN, LOW);
-    digitalWrite(B2_RED_PIN, LOW);
-    digitalWrite(B3_RED_PIN, LOW);
 }
 
 void setButtonColor(int button, ButtonColor color) {
@@ -168,19 +165,160 @@ void updateInputs() {
     }
 }
 
-int offset = 0;
+const int solid_color_options = 7;
+const CRGB solid_colors[solid_color_options] = {
+    CRGB::HotPink,
+    CRGB::Crimson,
+    CRGB::DarkBlue,
+    CRGB::DarkOrange,
+    CRGB::Gold,
+    CRGB::Indigo,
+    CRGB::SpringGreen,
+};
+
+const int flash_palette_count = 3;
+const CRGB flash_palettes[][flash_palette_count] = {
+    { CRGB::Red, CRGB::Blue, CRGB::Green },
+    { CRGB::DarkOrange, CRGB::SpringGreen, CRGB::HotPink },
+    { CRGB::Gold, CRGB::Indigo, CRGB::Crimson },
+};
+
+#define ANIM_OFF -1
+#define ANIM_SOLID 0
+#define ANIM_ALT_FLASH 1
+#define ANIM_RAINBOW 2
+#define ANIM_PULSE 3
+
+#define TOTAL_PATTERNS 4
+
+uint8_t offset = 0;
+
+uint8_t flash_offset = 0;
+int color_block_size = 2;
+int color_index = 0;
+
 int currentColorIndex = 0;
+int patternVariation = 0;
+int animationState = ANIM_SOLID;
+
+void increase_pattern_variation() {
+    patternVariation++;
+    patternVariation = patternVariation % 10000;
+}
+
+void decrease_pattern_variation() {
+    patternVariation--;
+    patternVariation = patternVariation % 10000;
+}
 
 void loop() {
-    offset++;
-    offset = offset % 256;
     EVERY_N_MILLISECONDS(30) {
         updateInputs();
+
+        if (buttons[UP].justPressed) {
+            increase_pattern_variation();
+        }
+        if (buttons[DOWN].justPressed) {
+            decrease_pattern_variation();
+        }
+        if (buttons[LEFT].justPressed) {
+            animationState = (animationState + TOTAL_PATTERNS - 1) % TOTAL_PATTERNS;
+        }
+        if (buttons[RIGHT].justPressed) {
+            animationState = (animationState + 1) % TOTAL_PATTERNS;
+        }
+
+        if (animationState == ANIM_ALT_FLASH) {
+            if (buttons[BUTTON_1].isPressed) {
+                color_block_size = min(color_block_size + 1, 40);
+            }
+            if (buttons[BUTTON_2].isPressed) {
+                color_block_size = max(color_block_size - 1, 2);
+            }
+        }
     }
 
-    fill_rainbow(leds_1, NUM_LEDS_1, offset);
-    fill_rainbow(leds_2, NUM_LEDS_2, offset);
-    FastLED.show();
+    if (animationState == ANIM_SOLID) {
+        EVERY_N_SECONDS(4) {
+            increase_pattern_variation();
+        }
 
+        CRGB color = solid_colors[patternVariation % solid_color_options];
+
+        fill_solid(leds_1, NUM_LEDS_1, color);
+        fill_solid(leds_2, NUM_LEDS_2, color);
+    }
+    else if (animationState == ANIM_ALT_FLASH) {
+        CRGB palette[3] = flash_palettes[patternVariation % flash_palette_count];
+
+        EVERY_N_MILLISECONDS(100) {
+            flash_offset = (flash_offset + 1) % 3;
+
+            color_index = flash_offset - 1;
+            for (int i = 0; i < NUM_LEDS_1; i++) {
+                if (i % color_block_size == 0) {
+                    color_index = (color_index - 1 + 3) % 3;
+                }
+
+                leds_1[i] = palette[color_index];
+            }
+
+            color_index = flash_offset - 1;
+            for (int i = 0; i < NUM_LEDS_2; i++) {
+                if (i % color_block_size == 0) {
+                    color_index = (color_index - 1 + 3) % 3;
+                }
+
+                leds_2[i] = palette[color_index];
+            }
+        }
+    }
+    else if (animationState == ANIM_PULSE) {
+        EVERY_N_MILLISECONDS(20) {
+            bool useRed = buttons[BUTTON_1].isPressed;
+            bool useGreen = buttons[BUTTON_2].isPressed;
+            bool useBlue = buttons[BUTTON_3].isPressed;
+
+            bool addPixel = useRed || useGreen || useBlue;
+
+            CRGB newPixelColor = solid_colors[patternVariation % solid_color_options];
+
+            if (addPixel) {
+                newPixelColor = CRGB::Black;
+                if (useRed) {
+                    newPixelColor.red = 200;
+                }
+                if (useGreen) {
+                    newPixelColor.green = 200;
+                }
+                if (useBlue) {
+                    newPixelColor.blue = 200;
+                }
+            }
+
+            for (int i = NUM_LEDS_1 - 1; i > 0; i--) {
+                leds_1[i] = leds_1[i - 1];
+            }
+
+            leds_1[0] = newPixelColor;
+
+            for (int i = NUM_LEDS_2 - 1; i > 0; i--) {
+                leds_2[i] = leds_2[i - 1];
+            }
+
+            leds_2[0] = newPixelColor;
+        }       
+    }
+    else if (animationState == ANIM_RAINBOW) {
+        EVERY_N_MILLISECONDS(10) {
+            offset = offset + 1;
+        }
+
+        fill_rainbow(leds_1, NUM_LEDS_1, offset);
+        fill_rainbow(leds_2, NUM_LEDS_2, offset);        
+    }
+
+
+    FastLED.show();
     FastLED.delay(10);
 }
